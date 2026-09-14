@@ -1,0 +1,11 @@
+# Block all environment files in any folder
+.env
+.env.local
+.env.*.local
+server/.env
+client/.env
+
+# Block node dependency folders
+node_modules/
+server/node_modules/
+client/node_modules/
