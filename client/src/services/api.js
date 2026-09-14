@@ -1,14 +1,19 @@
 import axios from "axios";
 const API_BASE_URL = "http://localhost:5000/api";
 
-export const analyzeResume = async (resumeInput, jobDescription) => {
+export const analyzeResume = async (
+  resumeInput,
+  jobDescription,
+  provider = "ollama",
+) => {
   const formData = new FormData();
   formData.append("jobDescription", jobDescription);
+  formData.append("provider", provider);
 
-  if (resumeInput instanceof File) {
-    formData.append("resumeFile", resumeInput);
-  } else {
+  if (typeof resumeInput === "string") {
     formData.append("resumeText", resumeInput);
+  } else {
+    formData.append("resumeFile", resumeInput);
   }
 
   const response = await axios.post(
@@ -18,7 +23,37 @@ export const analyzeResume = async (resumeInput, jobDescription) => {
       headers: { "Content-Type": "multipart/form-data" },
     },
   );
+  return response.data;
+};
 
+export const rewriteBulletPoint = async (
+  currentBullet,
+  missingSkill,
+  provider = "ollama",
+) => {
+  const response = await axios.post(`${API_BASE_URL}/resume/improve-bullet`, {
+    currentBullet,
+    missingSkill,
+    provider,
+  });
+  return response.data;
+};
+
+export const generateCvTemplate = async (
+  resumeText,
+  missingSkills,
+  improvements,
+  provider = "ollama",
+) => {
+  const response = await axios.post(
+    `${API_BASE_URL}/resume/generate-template`,
+    {
+      resumeText,
+      missingSkills,
+      improvements,
+      provider,
+    },
+  );
   return response.data;
 };
 
@@ -28,32 +63,8 @@ export const toggleTaskStatus = async (analysisId, taskId) => {
   );
   return response.data;
 };
-
-export const rewriteBulletPoint = async (currentBullet, missingSkill) => {
-  const response = await axios.post(`${API_BASE_URL}/resume/improve-bullet`, {
-    currentBullet,
-    missingSkill,
-  });
-  return response.data;
-};
 export const fetchHistory = async () => {
   const response = await axios.get(`${API_BASE_URL}/resume/history`);
-  return response.data;
-};
-
-export const generateCvTemplate = async (
-  resumeText,
-  missingSkills,
-  improvements,
-) => {
-  const response = await axios.post(
-    `${API_BASE_URL}/resume/generate-template`,
-    {
-      resumeText,
-      missingSkills,
-      improvements,
-    },
-  );
   return response.data;
 };
 

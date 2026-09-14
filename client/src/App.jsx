@@ -4,7 +4,7 @@ import AnalysisDashboard from "./components/AnalysisDashboard";
 import HistoryDrawer from "./components/HistoryDrawer";
 import AuthModal from "./components/AuthModal";
 import { analyzeResume, logoutUser } from "./services/api";
-import { Sparkles, History, LogIn, LogOut, User } from "lucide-react";
+import { Sparkles, History, LogIn, LogOut, User, Cpu, Cloud } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
@@ -15,13 +15,13 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [user, setUser] = useState(null);
+  
+  // Provider Selection State: 'ollama' or 'gemini'
+  const [provider, setProvider] = useState('ollama');
 
-  // Check saved session on load
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    if (savedUser) setUser(JSON.parse(savedUser));
   }, []);
 
   const handleLogout = () => {
@@ -39,7 +39,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const response = await analyzeResume(resumeInput, jobDescription);
+      const response = await analyzeResume(resumeInput, jobDescription, provider);
       if (response.success) {
         setAnalysisResult(response.data);
       } else {
@@ -47,9 +47,7 @@ export default function App() {
       }
     } catch (err) {
       setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to analyze resume"
+        err.response?.data?.message || err.message || "Failed to analyze resume"
       );
     } finally {
       setLoading(false);
@@ -61,7 +59,7 @@ export default function App() {
       <div className="max-w-5xl mx-auto">
         
         {/* Top Navigation Bar */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
           <div className="flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 bg-white border px-3 py-1.5 rounded-lg shadow-sm">
@@ -82,28 +80,53 @@ export default function App() {
             )}
           </div>
 
-          <button
-            onClick={() => {
-              if (!user) setIsAuthOpen(true);
-              else setIsHistoryOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-semibold shadow-sm transition-colors cursor-pointer"
-          >
-            <History className="w-4 h-4 text-indigo-600" />
-            Past Runs
-          </button>
+          <div className="flex items-center gap-3">
+            {/* AI Provider Switcher */}
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 p-1 rounded-lg text-xs shadow-sm">
+              <button
+                onClick={() => setProvider('ollama')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  provider === 'ollama' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                Ollama (Local)
+              </button>
+              <button
+                onClick={() => setProvider('gemini')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-colors ${
+                  provider === 'gemini' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Cloud className="w-3.5 h-3.5" />
+                Gemini Flash (Cloud)
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                if (!user) setIsAuthOpen(true);
+                else setIsHistoryOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-semibold shadow-sm transition-colors cursor-pointer"
+            >
+              <History className="w-4 h-4 text-indigo-600" />
+              Past Runs
+            </button>
+          </div>
         </div>
 
         {/* Header */}
         <header className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold mb-3">
-            <Sparkles className="w-4 h-4" /> Powered by Local Ollama Models
+            <Sparkles className="w-4 h-4" /> 
+            Active Engine: {provider === 'ollama' ? 'Local Ollama (llama3.2)' : 'Google Gemini 3.6 Flash'}
           </div>
           <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
             AI Smart Resume & Task Optimizer
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Compare your resume against job openings and generate instant preparation tasks locally.
+            Compare your resume against job openings and generate instant preparation tasks locally or via cloud.
           </p>
         </header>
 
@@ -120,6 +143,7 @@ export default function App() {
         {/* Dashboard Output */}
         <AnalysisDashboard
           data={analysisResult}
+          provider={provider}
           onTaskUpdate={(updatedData) => setAnalysisResult(updatedData)}
         />
 

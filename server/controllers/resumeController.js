@@ -1,19 +1,26 @@
-const PDFParser = require("pdf2json");
-const { getCvTemplatePrompt } = require("../utils/promptTemplates");
-const Analysis = require("../models/Analysis");
-const { queryOllama } = require("../config/ollama");
-const { getBulletRewritePrompt } = require("../utils/promptTemplates");
-const { getResumeAnalysisPrompt } = require("../utils/promptTemplates");
+const PDFParser = require('pdf2json');
+const Analysis = require('../models/Analysis');
+const { queryOllama } = require('../config/ollama');
+const { queryGemini } = require('../config/gemini');
+const { 
+  getResumeAnalysisPrompt, 
+  getBulletRewritePrompt, 
+  getCvTemplatePrompt 
+} = require('../utils/promptTemplates');
+
+// Helper to route prompt execution to selected provider
+const executeAIQuery = async (prompt, provider = 'ollama') => {
+  if (provider === 'gemini') {
+    return await queryGemini(prompt);
+  }
+  return await queryOllama(prompt, 'llama3.2');
+};
 
 const parsePdfBuffer = (buffer) => {
   return new Promise((resolve, reject) => {
     const pdfParser = new PDFParser(null, 1);
-    pdfParser.on("pdfParser_dataError", (errData) =>
-      reject(errData.parserError),
-    );
-    pdfParser.on("pdfParser_dataReady", () =>
-      resolve(pdfParser.getRawTextContent()),
-    );
+    pdfParser.on('pdfParser_dataError', (errData) => reject(errData.parserError));
+    pdfParser.on('pdfParser_dataReady', () => resolve(pdfParser.getRawTextContent()));
     pdfParser.parseBuffer(buffer);
   });
 };
@@ -21,56 +28,50 @@ const parsePdfBuffer = (buffer) => {
 const analyzeResume = async (req, res) => {
   try {
     let resumeText = req.body.resumeText;
-    const { jobDescription } = req.body;
+    const { jobDescription, provider } = req.body;
 
     if (req.file) {
       resumeText = await parsePdfBuffer(req.file.buffer);
     }
 
     if (!resumeText || !jobDescription) {
-      return res
-        .status(400)
-        .json({ error: "Missing resume file/text or job description" });
+      return res.status(400).json({ error: 'Missing resume file/text or job description' });
     }
 
     const prompt = getResumeAnalysisPrompt(resumeText, jobDescription);
-    const aiResponse = await queryOllama(prompt, "llama3.2");
+    const aiResponse = await executeAIQuery(prompt, provider);
 
     const formattedTasks = (aiResponse.actionTasks || []).map((taskTitle) => ({
       title: taskTitle,
-      completed: false,
+      completed: false
     }));
 
-    // Save resumeText along with the analysis metrics
-    // Inside analyzeResume function:
     const newAnalysis = await Analysis.create({
-      user: req.user.id, // Scoped to logged-in user
+      user: req.user.id,
       resumeText: resumeText,
       matchScore: aiResponse.matchScore,
       missingSkills: aiResponse.missingSkills,
       improvements: aiResponse.improvements,
-      actionTasks: formattedTasks,
+      actionTasks: formattedTasks
     });
 
     res.status(200).json({ success: true, data: newAnalysis });
   } catch (error) {
-    console.error("Analysis Error:", error);
+    console.error('Analysis Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 const improveBullet = async (req, res) => {
   try {
-    const { currentBullet, missingSkill } = req.body;
+    const { currentBullet, missingSkill, provider } = req.body;
 
     if (!currentBullet || !missingSkill) {
-      return res
-        .status(400)
-        .json({ error: "Missing bullet text or target skill" });
+      return res.status(400).json({ error: 'Missing bullet text or target skill' });
     }
 
     const prompt = getBulletRewritePrompt(currentBullet, missingSkill);
-    const aiResponse = await queryOllama(prompt, "llama3.2");
+    const aiResponse = await executeAIQuery(prompt, provider);
 
     res.status(200).json({ success: true, data: aiResponse.suggestions });
   } catch (error) {
@@ -80,14 +81,14 @@ const improveBullet = async (req, res) => {
 
 const generateCvTemplate = async (req, res) => {
   try {
-    const { resumeText, missingSkills = [], improvements = [] } = req.body;
+    const { resumeText, missingSkills = [], improvements = [], provider } = req.body;
 
     if (!resumeText) {
-      return res.status(400).json({ error: "Missing resume content" });
+      return res.status(400).json({ error: 'Missing resume content' });
     }
 
     const prompt = getCvTemplatePrompt(resumeText, missingSkills, improvements);
-    const aiResponse = await queryOllama(prompt, "llama3.2");
+    const aiResponse = await executeAIQuery(prompt, provider);
 
     res.status(200).json({ success: true, data: aiResponse });
   } catch (error) {
