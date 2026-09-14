@@ -1,13 +1,24 @@
 const Analysis = require('../models/Analysis');
 
-// GET /api/resume/tasks - Fetch all saved preparation tasks
+// GET /api/resume/tasks - Fetch latest analysis for logged-in user
 const getTasks = async (req, res) => {
   try {
-    const latestAnalysis = await Analysis.findOne().sort({ createdAt: -1 });
-    if (!latestAnalysis) {
-      return res.status(200).json({ success: true, data: [] });
-    }
-    res.status(200).json({ success: true, data: latestAnalysis });
+    const latestAnalysis = await Analysis.findOne({ user: req.user.id }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: latestAnalysis || null });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/resume/history - Fetch past runs for logged-in user
+const getHistory = async (req, res) => {
+  try {
+    const history = await Analysis.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('matchScore missingSkills createdAt');
+      
+    res.status(200).json({ success: true, data: history });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -32,18 +43,6 @@ const toggleTask = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-// GET /api/resume/history - Fetch past 10 analysis records
-const getHistory = async (req, res) => {
-  try {
-    const history = await Analysis.find()
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select('matchScore missingSkills createdAt');
-      
-    res.status(200).json({ success: true, data: history });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+
 
 module.exports = { getTasks, toggleTask, getHistory };

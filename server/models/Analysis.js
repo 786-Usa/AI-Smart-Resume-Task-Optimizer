@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const analysisSchema = new mongoose.Schema({
-  resumeText: { type: String, required: true }, // Added field
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Scoped user link
+  resumeText: { type: String, required: true },
   matchScore: { type: Number, required: true },
   missingSkills: [String],
   improvements: [String],

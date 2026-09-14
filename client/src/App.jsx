@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ResumeForm from "./components/ResumeForm";
 import AnalysisDashboard from "./components/AnalysisDashboard";
 import HistoryDrawer from "./components/HistoryDrawer";
-import { analyzeResume } from "./services/api";
-import { Sparkles, History } from "lucide-react";
+import AuthModal from "./components/AuthModal";
+import { analyzeResume, logoutUser } from "./services/api";
+import { Sparkles, History, LogIn, LogOut, User } from "lucide-react";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
@@ -12,8 +13,29 @@ export default function App() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // Check saved session on load
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    logoutUser();
+    setUser(null);
+    setAnalysisResult(null);
+  };
 
   const handleFormSubmit = async ({ resumeInput, jobDescription }) => {
+    if (!user) {
+      setIsAuthOpen(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -38,11 +60,34 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
         
-        {/* Top Action Bar */}
+        {/* Top Navigation Bar */}
         <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            {user ? (
+              <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 bg-white border px-3 py-1.5 rounded-lg shadow-sm">
+                <User className="w-4 h-4 text-indigo-600" />
+                <span>{user.name}</span>
+                <button onClick={handleLogout} className="ml-2 text-rose-500 hover:text-rose-700">
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                Sign In / Register
+              </button>
+            )}
+          </div>
+
           <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-semibold shadow-sm transition-colors ml-auto cursor-pointer"
+            onClick={() => {
+              if (!user) setIsAuthOpen(true);
+              else setIsHistoryOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-lg text-sm font-semibold shadow-sm transition-colors cursor-pointer"
           >
             <History className="w-4 h-4 text-indigo-600" />
             Past Runs
@@ -58,8 +103,7 @@ export default function App() {
             AI Smart Resume & Task Optimizer
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            Compare your resume against job openings and generate instant
-            preparation tasks locally.
+            Compare your resume against job openings and generate instant preparation tasks locally.
           </p>
         </header>
 
@@ -85,13 +129,22 @@ export default function App() {
           onClose={() => setIsHistoryOpen(false)}
           onSelectRun={async (id) => {
             try {
-              const res = await fetch(`${API_BASE_URL}/resume/tasks`);
+              const res = await fetch(`${API_BASE_URL}/resume/tasks`, {
+                headers: { Authorization: `Bearer ${user?.token}` }
+              });
               const data = await res.json();
               if (data.success) setAnalysisResult(data.data);
             } catch (err) {
               console.error("Failed to load historical run:", err);
             }
           }}
+        />
+
+        {/* Authentication Modal */}
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          onAuthSuccess={(userData) => setUser(userData)}
         />
 
       </div>
