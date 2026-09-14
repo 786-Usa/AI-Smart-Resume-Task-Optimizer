@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const analysisSchema = new mongoose.Schema({
+  resumeText: { type: String, required: true }, // Added field
   matchScore: { type: Number, required: true },
   missingSkills: [String],
   improvements: [String],

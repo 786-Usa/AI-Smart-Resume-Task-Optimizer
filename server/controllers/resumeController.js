@@ -1,6 +1,8 @@
 const PDFParser = require('pdf2json');
+const { getCvTemplatePrompt } = require('../utils/promptTemplates');
 const Analysis = require('../models/Analysis');
 const { queryOllama } = require('../config/ollama');
+const { getBulletRewritePrompt } = require('../utils/promptTemplates');
 const { getResumeAnalysisPrompt } = require('../utils/promptTemplates');
 
 const parsePdfBuffer = (buffer) => {
@@ -28,14 +30,14 @@ const analyzeResume = async (req, res) => {
     const prompt = getResumeAnalysisPrompt(resumeText, jobDescription);
     const aiResponse = await queryOllama(prompt, 'llama3.2');
 
-    // Convert raw action string tasks into object structures with completion status
     const formattedTasks = (aiResponse.actionTasks || []).map((taskTitle) => ({
       title: taskTitle,
       completed: false
     }));
 
-    // Save to DB
+    // Save resumeText along with the analysis metrics
     const newAnalysis = await Analysis.create({
+      resumeText: resumeText, // Added field
       matchScore: aiResponse.matchScore,
       missingSkills: aiResponse.missingSkills,
       improvements: aiResponse.improvements,
@@ -49,7 +51,6 @@ const analyzeResume = async (req, res) => {
   }
 };
 
-const { getBulletRewritePrompt } = require('../utils/promptTemplates');
 
 const improveBullet = async (req, res) => {
   try {
@@ -67,7 +68,6 @@ const improveBullet = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-const { getCvTemplatePrompt } = require('../utils/promptTemplates');
 
 const generateCvTemplate = async (req, res) => {
   try {
